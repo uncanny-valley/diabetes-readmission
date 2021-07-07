@@ -15,15 +15,6 @@ def main(input_filepath, output_filepath):
         cleaned data ready to be analyzed (saved in ../processed).
     """
     logger = logging.getLogger(__name__)
-    process_diabetes_data(logger, input_filepath, output_filepath, "diabetes")
-
-def process_diabetes_data(logger, input_filepath, output_filepath, target_filestem):
-    logger.info('processing and exporting diabetes dataset')
-    input_csv_path = path.join(input_filepath, target_filestem + '.csv')
-    output_csv_path = path.join(output_filepath, target_filestem + '.csv')
-    output_pickle_path = path.join(output_filepath, target_filestem + '.pkl')
-
-    df = pd.read_csv(input_csv_path, index_col=0)
     
 
 
