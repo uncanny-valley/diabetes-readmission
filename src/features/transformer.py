@@ -1,11 +1,14 @@
+from boruta import BorutaPy
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import FeatureUnion, _fit_transform_one, _transform_one
 from scipy import sparse
 
-from src.features.icd9 import icd9_to_classification, icd9_to_category
+from src.features.icd9 import icd9_to_classification, icd9_to_category, generate_comorbidity_index_predicates
 from src.data.load_dataset import convert_id_to_discharge_disposition
 
 
@@ -121,6 +124,12 @@ class DischargeMapper(TransformerMixin):
             df[column] = convert_id_to_discharge_disposition(df[column])
         return df
 
+class DiagnosisComorbidityExtractor(TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        return generate_comorbidity_index_predicates(X)
 
 class DiagnosisMapper(TransformerMixin):
     """
@@ -183,8 +192,8 @@ class FeatureCombiner(TransformerMixin):
 
     def transform(self, X):
         df = X.copy()
-        for (features, operation, combined_feature_name) in self.combined_features:
-            df[combined_feature_name] = df.loc[:, features].apply(operation, axis=1)
+        for (features, operation, combined_feature_name, target_type) in self.combined_features:
+            df[combined_feature_name] = df.loc[:, features].apply(operation, axis=1).astype(target_type)
 
         return df
 
@@ -205,8 +214,12 @@ class CategoryCollapseThreshold(TransformerMixin):
         self._column_categories = {}
     
         for column in self.columns:
+
             if column not in self._column_categories:
                 self._column_categories[column] = X[column].cat.categories if X[column].dtype.name == 'category' else X[column].astype('category').cat.categories
+                # Skip column if it's a binary or unary feature
+                if len(self._column_categories[column]) < 3:
+                    continue
 
             value_counts = X[column].value_counts(normalize=True)
             for value, proportion in value_counts.items():
@@ -226,7 +239,9 @@ class CategoryCollapseThreshold(TransformerMixin):
         df = X.copy()
         for column in self.columns:
             df[column] = df[column].apply(lambda v: self._get_column_value(column, v))
-            df[column] = df[column].astype('category')
+
+            if df[column].dtype.name == 'object':
+                df[column] = df[column].astype('category')
         return df
 
     def _get_column_value(self, column, value):
@@ -267,3 +282,64 @@ class CategoricalHomogeneityThreshold(TransformerMixin):
 
     def transform(self, X):
         return X.drop(columns=self._columns_to_drop)
+
+
+class OneHotEncoder(TransformerMixin):
+    def __init__(self, columns=None, drop_first=False):
+        self.columns = columns
+        self._drop_first = drop_first
+
+    def fit(self, X: pd.DataFrame, y=None, **fit_params):
+        self.columns = self.columns if self.columns is not None else X.columns
+        return self
+
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        return pd.get_dummies(X, columns=self.columns, drop_first=self._drop_first)
+
+class CollinearityThreshold(TransformerMixin):
+    def __init__(self, threshold:np.float64=0.9, correlation_method:str='spearman', verbose=False):
+        """
+        Removes features that are considered highly correlated.
+
+        Args:
+            threshold (np.float64, optional): The upper bound on the acceptable correlation coefficient between two features. Defaults to 0.9.
+            correlation_method (str, optional): The method with which to compute the correlation coefficient between two features.
+                Valid options: {"spearman", "pearson", "kendall"}. Defaults to 'spearman'.
+        """
+        self._threshold = threshold
+        self._correlation_method = correlation_method
+        self._correlated_pairs = []
+        self._verbose = verbose
+    
+    def fit(self, X: pd.DataFrame, y=None, **fit_params):
+        df = X.copy()
+
+        corr = pd.DataFrame(np.corrcoef(df.values, rowvar=False), columns=df.columns, index=df.columns)
+
+        # Select upper triangle of matrix
+        upper = corr.where(np.triu(np.ones(corr.shape), k=1).astype(np.bool))
+
+        for column, rows in upper.iteritems():
+            self._correlated_pairs.extend([(column, i) for (i, coef) in rows.iteritems() if abs(coef) > self._threshold])
+    
+        if self._verbose:
+            print(f'[{self.__class__.__name__}] Correlated features: {self._correlated_pairs}')
+        
+        return self
+
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        # Drop first feature in each correlated pair
+        return X.drop(columns=[f1 for (f1, f2) in self._correlated_pairs])
+
+
+class BorutaFeatureSelector(TransformerMixin):
+    def __init__(self, columns=None, max_iter=100, random_state:int=0):
+        self._forest = RandomForestClassifier(n_jobs=-1, class_weight='balanced', max_depth=5)
+        self._boruta = BorutaPy(self._forest, n_estimators='auto', max_iter=max_iter, random_state=random_state)
+
+    def fit(self, X: pd.DataFrame, y:pd.Series=None, **fit_params):
+        self._boruta.fit(X.values, y[X.index].values)
+        return self
+
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        return self._boruta.transform(X)
