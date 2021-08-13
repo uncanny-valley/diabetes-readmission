@@ -285,12 +285,17 @@ class CategoricalHomogeneityThreshold(TransformerMixin):
 
 
 class OneHotEncoder(TransformerMixin):
-    def __init__(self, columns=None, drop_first=False):
+    def __init__(self, columns=None, columns_to_ignore=None, drop_first=False):
         self.columns = columns
+        self.columns_to_ignore = columns_to_ignore
         self._drop_first = drop_first
 
     def fit(self, X: pd.DataFrame, y=None, **fit_params):
         self.columns = self.columns if self.columns is not None else X.columns
+
+        if self.columns_to_ignore:
+            self.columns = list(set(self.columns) - set(self.columns_to_ignore))
+
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
