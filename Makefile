@@ -1,4 +1,4 @@
-.PHONY: clean data lint requirements sync_data_to_s3 sync_data_from_s3
+.PHONY: clean data lint requirements features sync_data_to_s3 sync_data_from_s3
 
 #################################################################################
 # GLOBALS                                                                       #
@@ -25,9 +25,22 @@ requirements: test_environment
 	$(PYTHON_INTERPRETER) -m pip install -U pip setuptools wheel
 	$(PYTHON_INTERPRETER) -m pip install -r requirements.txt
 
+
 ## Make Dataset
 data: requirements
-	$(PYTHON_INTERPRETER) src/data/make_dataset.py data/raw data/processed
+	$(PYTHON_INTERPRETER) src/data/make_dataset.py
+
+features: data
+	$(PYTHON_INTERPRETER) -m src.features.build_features data/interim/00_diabetes.pkl
+
+figures: features
+	$(PYTHON_INTERPRETER) -m src.visualization.figures data/interim/00_diabetes.pkl reports/figures
+
+model:
+	$(PYTHON_INTERPRETER) -m src.models.train_model studies/random_forest_rfecv_f1.db random_forest_rfecv_f1 data/processed/train_rfecv.pkl random_forest models/best_model.joblib
+
+predict: 
+	$(PYTHON_INTERPRETER) -m src.models.predict_model models/best_model.joblib data/processed/test_rfecv.pkl metrics
 
 ## Delete all compiled Python files
 clean:
@@ -37,6 +50,9 @@ clean:
 ## Lint using flake8
 lint:
 	flake8 src
+
+jupyter:
+	PYTHONPATH=$(PROJECT_DIR) jupyter notebook --ip=0.0.0.0
 
 ## Upload Data to S3
 sync_data_to_s3:

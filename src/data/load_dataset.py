@@ -1,9 +1,16 @@
 import os
 import pandas as pd
 import pathlib
+from typing import Tuple
+from imblearn.under_sampling import RandomUnderSampler
+
 
 # The path to the central directory of the project
-PROJECT_ROOT = os.path.dirname(os.path.abspath(os.curdir))
+PROJECT_ROOT = os.path.abspath(os.curdir)
+
+# The project root is erroneously set to one level below in the `notebooks` directory if invoked in a Jupyter notebook
+if PROJECT_ROOT.split('/')[-1] == 'notebooks':
+    PROJECT_ROOT = os.path.dirname(PROJECT_ROOT)
 
 RAW_FOLDER = os.path.join(PROJECT_ROOT, 'data', 'raw')
 PROCESSED_FOLDER = os.path.join(PROJECT_ROOT, 'data', 'processed')
@@ -19,8 +26,30 @@ def find_interim_path(filename: str) -> str:
 def find_preprocessed_path(filename: str) -> str:
     return os.path.join(PROCESSED_FOLDER, filename)
 
-def load_raw_data() -> pd.DataFrame: 
-    return pd.read_csv(find_raw_path('diabetes.csv'), index_col=0)
+def load_raw_data(filepath: str=None) -> pd.DataFrame: 
+    if filepath is None:
+        return pd.read_csv(find_raw_path('diabetes.csv'), index_col=0)
+    else:
+        return pd.read_csv(filepath, index_col=0)
+
+def load_data(filename, index_col=None) -> pd.DataFrame:
+    file_ext = pathlib.Path(filename).suffix
+    if file_ext == '.pkl':
+        return pd.read_pickle(filename)
+    elif file_ext == '.csv':
+        return pd.read_csv(filename, index_col=index_col)
+    else:
+        raise ValueError(f'Unsupported file extension: {file_ext}')
+
+def undersample_preprocessed_data(X_train: pd.DataFrame, y_train: pd.DataFrame, random_seed: int=0) -> Tuple[pd.DataFrame, pd.Series]:
+    random_undersampler = RandomUnderSampler(random_state=random_seed)
+    return random_undersampler.fit_resample(X_train, y_train)
+
+def split_dataset(data: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
+    dataset = data.reset_index(drop=True)
+    X = dataset.drop(columns=['is_readmitted_early'])
+    y = dataset.is_readmitted_early
+    return X, y
 
 def load_preprocessed_csv(filename, index_col=None):
     return pd.read_csv(find_preprocessed_path(filename), index_col=index_col)

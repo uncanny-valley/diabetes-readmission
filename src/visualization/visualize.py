@@ -54,7 +54,8 @@ def grouped_bar_plot(feature_name: str, df: pd.DataFrame, ax: SubplotBase=None, 
     grouped = df.groupby(groupby)[feature_name] \
         .value_counts(normalize=True) \
         .rename(y_colname).to_frame() \
-        .reset_index()
+        .reset_index() \
+        .rename(columns={'level_1': feature_name}) \
 
     if not ax:
         fig, ax = plt.subplots()
@@ -69,7 +70,7 @@ def grouped_bar_plot(feature_name: str, df: pd.DataFrame, ax: SubplotBase=None, 
         ax.set_xticklabels(labels, rotation=rot)
 
     ax.set_title(title, pad=20)
-    ax.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
+    ax.legend(loc='upper left', bbox_to_anchor=(1.025, 1))
     annotate_bar_plot_with_proportions(bar_plot, ax=ax)
 
 def annotate_bar_plot_with_proportions(bar_plot, fontsize=9, vertical=False, ax=None):

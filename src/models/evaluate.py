@@ -236,3 +236,27 @@ def plot_learning_curve(estimator: BaseEstimator, X: pd.DataFrame, y: pd.Series,
     ax.plot(train_sizes, test_scores_mean, 'o-', color="g",
                  label="Cross-validation score")
     ax.legend(loc="best")
+
+
+def plot_roc_with_optimum(estimator: BaseEstimator, X: pd.DataFrame, y: pd.Series, ax: SubplotBase=None):
+    y_pred_proba = estimator.predict_proba(X)[:, 1]
+    fpr, tpr, thresholds = roc_curve(y, y_pred_proba)
+
+    # Compute geometric mean of sensitivity and specificity
+    g_means = np.sqrt(tpr * (1-fpr))
+
+    best_threshold_roc_index = np.argmax(g_means)
+    best_threshold_roc = thresholds[best_threshold_roc_index]
+    
+    if ax is None:
+        _, ax = plt.subplots(figsize=(10, 5))
+        
+    plot_roc_curve(estimator, X, y, name='ROC', lw=1, ax=ax)
+    ax.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r', label='Chance', alpha=.8)
+    ax.plot(fpr[best_threshold_roc_index], tpr[best_threshold_roc_index], color='black', marker='o', label=f'Optimal threshold: {round(best_threshold_roc, 3)}')
+    ax.set_title(f'ROC AUC for {estimator.__class__.__name__}')
+    
+    ax.fill_between(fpr, tpr, hatch='.', alpha=0.25)
+    
+    plt.legend()
+    return best_threshold_roc

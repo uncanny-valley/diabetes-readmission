@@ -8,8 +8,8 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import FeatureUnion, _fit_transform_one, _transform_one
 from scipy import sparse
 
-from src.features.icd9 import icd9_to_classification, icd9_to_category, generate_comorbidity_index_predicates
 from src.data.load_dataset import convert_id_to_discharge_disposition
+from src.features.icd9 import icd9_to_classification, icd9_to_category, generate_comorbidity_index_predicates
 
 
 class PandasFeatureUnion(FeatureUnion):
@@ -135,8 +135,8 @@ class DiagnosisMapper(TransformerMixin):
     """
     Translates ICD9 codes to semantic classifications
     """
-    def __init__(self, columns):
-        self.columns = columns
+    def __init__(self):
+        self.columns = ['diag_1', 'diag_2', 'diag_3']
         
     def fit(self, X, y=None):
         return self
@@ -153,7 +153,7 @@ class DiagnosisMapper(TransformerMixin):
 
 
 class EncodeNaNCategoricalImputer(TransformerMixin):
-    def __init__(self, columns, special_cases={}, nan_label='Not Available'):
+    def __init__(self, columns=[], special_cases={}, nan_label='Not Available'):
         self.columns = columns
         self._nan_label = nan_label
         self._special_cases = special_cases
@@ -171,7 +171,7 @@ class EncodeNaNCategoricalImputer(TransformerMixin):
         return df
 
 class MostFrequentCategoricalImputer(TransformerMixin):
-    def __init__(self, columns):
+    def __init__(self, columns=[]):
         self.columns = columns
 
     def fit(self, X, y=None, **fit_params):
@@ -308,24 +308,21 @@ class CollinearityThreshold(TransformerMixin):
 
         Args:
             threshold (np.float64, optional): The upper bound on the acceptable correlation coefficient between two features. Defaults to 0.9.
-            correlation_method (str, optional): The method with which to compute the correlation coefficient between two features.
-                Valid options: {"spearman", "pearson", "kendall"}. Defaults to 'spearman'.
         """
         self._threshold = threshold
-        self._correlation_method = correlation_method
         self._correlated_pairs = []
         self._verbose = verbose
     
     def fit(self, X: pd.DataFrame, y=None, **fit_params):
         df = X.copy()
 
-        corr = pd.DataFrame(np.corrcoef(df.values, rowvar=False), columns=df.columns, index=df.columns)
+        corr = pd.DataFrame(np.abs(np.corrcoef(df.values, rowvar=False)), columns=df.columns, index=df.columns)
 
         # Select upper triangle of matrix
         upper = corr.where(np.triu(np.ones(corr.shape), k=1).astype(np.bool))
 
         for column, rows in upper.iteritems():
-            self._correlated_pairs.extend([(column, i) for (i, coef) in rows.iteritems() if abs(coef) > self._threshold])
+            self._correlated_pairs.extend([(column, i) if column < i else (i, column) for (i, coef) in rows.iteritems() if abs(coef) > self._threshold])
     
         if self._verbose:
             print(f'[{self.__class__.__name__}] Correlated features: {self._correlated_pairs}')

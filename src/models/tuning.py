@@ -115,7 +115,7 @@ if __name__ == '__main__':
     parser.add_argument('--cv', type=int, default=5)
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--model', choices=['random_forest', 'lgbm'], default='random_forest')
-    parser.add_argument('--dataset', choices=['original', 'rfecv', 'pruned'], default='original')
+    parser.add_argument('--dataset', choices=['original', 'rfecv', 'pruned', 'top_25'], default='original')
     parser.add_argument('--scoring', type=str, default='f2')
     parser.add_argument('--num_trials', type=int, default=100)
     parser.add_argument('--study-name', type=str)
@@ -128,6 +128,10 @@ if __name__ == '__main__':
         filename = 'data/processed/train_rfecv.pkl'
     elif args.dataset == 'pruned':
         filename = 'data/processed/train_pruned.pkl'
+    elif args.dataset == 'top_25':
+        filename = 'data/processed/train_top_25.pkl'
+    else:
+        raise ValueError(f'Given dataset option {args.dataset} is not supported')
 
     training_data = pd.read_pickle(filename)
     X_train = training_data.drop(columns=['is_readmitted_early'])
