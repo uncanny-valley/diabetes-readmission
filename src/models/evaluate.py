@@ -21,6 +21,7 @@ from sklearn.utils.validation import check_is_fitted
 
 from time import time
 from typing import List, Tuple, Generator
+import numpy.typing as npt
 
 
 # Alias for k-fold model-sample combination (estimator, X_train, y_train, X_val, y_val)
@@ -85,6 +86,41 @@ def generate_classification_report(X_train: pd.DataFrame, y_train: pd.Series, X_
     generate_classification_report_from_model(estimator, X_train, y_train, X_val, y_val, name, pos_label=pos_label, neg_label=neg_label)
 
 
+def plot_roc_with_trained_model(estimator: BaseEstimator, X_test: pd.DataFrame, y_test: pd.Series, fpr_space: npt.NDArray, fold: int=None, ax: SubplotBase=None) -> Tuple[npt.NDArray, npt.NDArray]:
+    if ax is None:
+        _, ax = plt.subplots()
+    
+    roc = plot_roc_curve(estimator, X_test, y_test, name=f'ROC fold {fold}' if fold is not None else 'ROC', alpha=0.3, lw=1, ax=ax)
+    interp_tpr = np.interp(fpr_space, roc.fpr, roc.tpr)
+    interp_tpr[0] = 0.0
+    return interp_tpr, roc.roc_auc
+
+def plot_mean_roc(estimator: BaseEstimator, tprs: List[float], aucs: List[float], fpr_space: npt.NDArray, sampling_method: str=None, ax: SubplotBase=None):
+    if ax is None:
+        _, ax = plt.subplots()
+
+    ax.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',
+        label='Chance', alpha=.8)
+
+    mean_tpr = np.mean(tprs, axis=0)
+    mean_tpr[-1] = 1.0
+    mean_auc = auc(fpr_space, mean_tpr)
+    std_auc = np.std(aucs)
+    ax.plot(fpr_space, mean_tpr, color='b',
+            label=r'Mean ROC (AUC = %0.2f $\pm$ %0.2f)' % (mean_auc, std_auc),
+            lw=2, alpha=.8)
+
+    std_tpr = np.std(tprs, axis=0)
+    tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
+    tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
+    ax.fill_between(fpr_space, tprs_lower, tprs_upper, color='grey', alpha=.2,
+                    label=r'$\pm$ 1 std. dev.')
+
+    sampling_title = f' (sampling={sampling_method})' if sampling_method is not None else ''
+    ax.set(xlim=[-0.05, 1.05], ylim=[-0.05, 1.05],
+        title=f'Mean ROC for {estimator.__class__.__name__}{sampling_title}')
+    ax.legend(loc='lower right')  
+
 def plot_roc_over_models(model_sample_pairs: List[ModelSamplePair], ax: SubplotBase=None):
     tprs = []
     aucs = []
@@ -94,34 +130,11 @@ def plot_roc_over_models(model_sample_pairs: List[ModelSamplePair], ax: SubplotB
         _, ax = plt.subplots()
 
     for i, (estimator, _, _, xv, yv) in enumerate(model_sample_pairs):
-        viz = plot_roc_curve(estimator, xv, yv,
-                name='ROC fold {}'.format(i),
-                alpha=0.3, lw=1, ax=ax)
-        interp_tpr = np.interp(mean_fpr, viz.fpr, viz.tpr)
-        interp_tpr[0] = 0.0
-        tprs.append(interp_tpr)
-        aucs.append(viz.roc_auc)
+        tpr, roc_auc = plot_roc_with_trained_model(estimator, xv, yv, fpr_space=mean_fpr, fold=i, ax=ax)
+        tprs.append(tpr)
+        aucs.append(roc_auc)
 
-    ax.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',
-        label='Chance', alpha=.8)
-
-    mean_tpr = np.mean(tprs, axis=0)
-    mean_tpr[-1] = 1.0
-    mean_auc = auc(mean_fpr, mean_tpr)
-    std_auc = np.std(aucs)
-    ax.plot(mean_fpr, mean_tpr, color='b',
-            label=r'Mean ROC (AUC = %0.2f $\pm$ %0.2f)' % (mean_auc, std_auc),
-            lw=2, alpha=.8)
-
-    std_tpr = np.std(tprs, axis=0)
-    tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
-    tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
-    ax.fill_between(mean_fpr, tprs_lower, tprs_upper, color='grey', alpha=.2,
-                    label=r'$\pm$ 1 std. dev.')
-
-    ax.set(xlim=[-0.05, 1.05], ylim=[-0.05, 1.05],
-        title=f'Mean ROC for {estimator.__class__.__name__} (folds={len(model_sample_pairs)}, sampling={estimator.__sample__})')
-    ax.legend(loc="lower right")   
+    plot_mean_roc(estimator, tprs, aucs, mean_fpr, sampling_method=estimator.__sample__, ax=ax)
 
 
 def plot_roc_over_folds(X: pd.DataFrame, y: pd.Series, skf: StratifiedKFold, estimator: BaseEstimator, sampler: BaseSampler, ax: SubplotBase=None):

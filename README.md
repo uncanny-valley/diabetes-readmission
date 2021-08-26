@@ -172,22 +172,22 @@ In the notebook [`notebooks/4_hyperparameter_optimization.ipynb`](https://github
 We generated multiple datasets in an effort to reduce the dataset's original 80 features and reduce overfitting. We performed recursive feature elimination to select the optimal subset of features that yielded the highest average ROC AUC score over 5 cross-validated folds. We used random forest as our base classifier for this incremental feature elimination. The best performance required 76 features. The most relevant features were the log-transformed numerical features in the number of lab procedures, days in the hospital, number of medications, the number of procedures, number of diagnoses, and the diversity of the three given diagnoses. Age and whether the patient was discharged to their home were also important. A notable observation is that these feature importances are all extremely low in weight, meaning there did not exist a ubiquitous feature that proved to be a key indicator for all trees that analyzed various subsets of data.
 
 <img src='reports/figures/rfecv.png' style='width:100%;' />
-**Figure 9**: We performed recursive feature elimination to select the optimal subset of features that yielded the highest average ROC AUC score over 5 cross-validated folds. The best performing classifier used 76 of 80 features. The most relevant features were the log-transformed numerical features in the number of lab procedures, days in the hospital, and number of medications.
+**Figure 9**: We performed recursive feature elimination to select the optimal subset of features that yielded the highest average ROC AUC score over 5 cross-validated folds. The best performing classifier used 79 of 80 features. We observe that by 30-35 features, we already achieve an average cross-validated ROC AUC score of 0.62. The most relevant features were the log-transformed numerical features in the number of lab procedures, days in the hospital, and number of medications.
 
 We used Optuna, a hyperparameter optimization framework, to more efficiently navigate our hyperparameter search space. We conducted 32 studies, $M\ \times\ D\ \times\ O$, where:
 
 - $M$ is the model type (random forest, LGBM). These models yielded the consistent cross-validation results in our model selection phase.
-- $D$ is the dataset type (undersampled, undersampled + feature selected via RFECV, undersampled + feature selected based on feature importance during k-fold CV, top 25 most relevant features)
+- $D$ is the dataset type (undersampled, undersampled + feature selected via RFECV, undersampled + feature selected based on feature importance during k-fold CV, top 35 most relevant features)
 - $O$ is our maximization objective (recall, $f\beta$-score ($\beta=\{1,2\})$, ROC AUC)
 
-Our best classifier was on the RFE-reduced dataset, optimizing for the f1-score. It was able to identify 62% of non-early readmission patients and 60% of early readmission patients against a standard 0.5 classification threshold. Considering all classification thresholds, it yielded an ROC AUC of 0.64, with an optimal threshold at 0.5. We observe a 18.5% difference in the ROC AUC, compared to the LACE Index.
+Our best classifier was on the RFE-reduced dataset, optimizing for the f1-score. It was able to identify 62% of non-early readmission patients and 61% of early readmission patients against a standard 0.5 classification threshold. Considering all classification thresholds, it yielded an ROC AUC of 0.65, with an optimal threshold at 0.5. We observe a ~20% improvement in the ROC AUC, compared to the LACE Index.
 
 <div>
     <img src='metrics/confusion_matrix.png' style='width:48%;' />
     <img src='metrics/roc.png' style='width:48%;' />
 </div>
 
-**Figure 9a**: The normalized confusion matrix for our final random forest classifier. The model is able to identify 60% of early readmission patients and 62% of non-early readmission patients. **Figure 9b**: The final model yields a ROC AUC of 0.64, which can be interpreted as the probability that our model labels a future early readmission as positive. We observe a 18.5% difference in the ROC AUC, compared to the LACE Index.
+**Figure 9a**: The normalized confusion matrix for our final random forest classifier. The model is able to identify 61% of early readmission patients and 62% of non-early readmission patients. **Figure 9b**: The final model yields a ROC AUC of 0.65, which can be interpreted as the probability that our model labels a future early readmission as positive. We observe a ~20% improvement in the ROC AUC, compared to the LACE Index.
 
 
 ## 2.6 Future Work

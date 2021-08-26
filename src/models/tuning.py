@@ -12,6 +12,7 @@ from lightgbm import LGBMClassifier
 import operator
 
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import fbeta_score, make_scorer
 from sklearn.model_selection import cross_val_score
 
@@ -46,16 +47,34 @@ class EarlyStoppingCallback:
             study.stop()
 
 
-def generate_objective_function(X_train: pd.DataFrame, y_train: pd.DataFrame, model: str, scoring: str, cv: int=5, random_state: int=0):
+def generate_objective_function(X_train: pd.DataFrame, y_train: pd.DataFrame, model: str, scoring: str, cv: int=5, random_state: int=0) -> np.float64:
     if model == 'random_forest':
         return partial(_random_forest_objective, X_train=X_train, y_train=y_train, scoring=scoring, cv=cv, random_state=random_state)
     elif model == 'lgbm':
         return partial(_lgbm_objective, X_train=X_train, y_train=y_train, scoring=scoring, cv=cv, random_state=random_state)
+    elif model == 'logreg':
+        return partial(_logreg_objective, X_train=X_train, y_train=y_train, scoring=scoring, cv=cv, random_state=random_state)
     else:
         raise ValueError(f'Unsupported objective function for (model: {model})')
 
 
-def _lgbm_objective(trial: optuna.trial.Trial, X_train: pd.DataFrame, y_train: pd.Series, scoring: str, cv: int, random_state: int):
+def _logreg_objective(trial: optuna.trial.Trial, X_train: pd.DataFrame, y_train: pd.Series, scoring: str, cv: int, random_state: int=0) -> np.float64:
+    params = {
+        'penalty': 'l2',
+        'C': trial.suggest_float('C', 1e-10, 1e10, log=True),
+        'random_state': random_state,
+        'max_iter': 10000
+    }
+
+    if scoring == 'f2':
+        scoring = make_scorer(fbeta_score, beta=2, zero_division=0)
+    
+    clf = LogisticRegression(**params)
+    scores = cross_val_score(clf, X_train, y_train, scoring=scoring, cv=cv, n_jobs=-1)
+    return scores.mean()
+
+
+def _lgbm_objective(trial: optuna.trial.Trial, X_train: pd.DataFrame, y_train: pd.Series, scoring: str, cv: int, random_state: int=0) -> np.float64:
     params = {
         'boosting_type': 'gbdt',
         'objective': 'binary',
@@ -114,8 +133,8 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--cv', type=int, default=5)
     parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('--model', choices=['random_forest', 'lgbm'], default='random_forest')
-    parser.add_argument('--dataset', choices=['original', 'rfecv', 'pruned', 'top_25'], default='original')
+    parser.add_argument('--model', choices=['random_forest', 'lgbm', 'logreg'], default='random_forest')
+    parser.add_argument('--dataset', choices=['original', 'rfecv', 'pruned', 'top_35'], default='original')
     parser.add_argument('--scoring', type=str, default='f2')
     parser.add_argument('--num_trials', type=int, default=100)
     parser.add_argument('--study-name', type=str)
@@ -128,8 +147,8 @@ if __name__ == '__main__':
         filename = 'data/processed/train_rfecv.pkl'
     elif args.dataset == 'pruned':
         filename = 'data/processed/train_pruned.pkl'
-    elif args.dataset == 'top_25':
-        filename = 'data/processed/train_top_25.pkl'
+    elif args.dataset == 'top_35':
+        filename = 'data/processed/train_top_35.pkl'
     else:
         raise ValueError(f'Given dataset option {args.dataset} is not supported')
 

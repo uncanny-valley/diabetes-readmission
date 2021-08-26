@@ -1,4 +1,4 @@
-.PHONY: clean data lint requirements features sync_data_to_s3 sync_data_from_s3
+.PHONY: clean data lint requirements features baseline figures model predict sync_data_to_s3 sync_data_from_s3
 
 #################################################################################
 # GLOBALS                                                                       #
@@ -36,8 +36,14 @@ features: data
 figures: features
 	$(PYTHON_INTERPRETER) -m src.visualization.figures data/interim/00_diabetes.pkl reports/figures
 
+samples:
+	$(PYTHON_INTERPRETER) -m src.models.sample data/processed/train.pkl 3
+
+baseline:
+	$(PYTHON_INTERPRETER) -m src.models.evaluate_baseline_model '$$data-$$type-$$sampler-fold-$$fold.pkl' 3
+
 model:
-	$(PYTHON_INTERPRETER) -m src.models.train_model studies/random_forest_rfecv_f1.db random_forest_rfecv_f1 data/processed/train_rfecv.pkl random_forest models/best_model.joblib
+	$(PYTHON_INTERPRETER) -m src.models.train_model studies/random_forest_rfecv_f2.db random_forest_rfecv_f2 data/processed/train_rfecv.pkl random_forest models/best_model.joblib
 
 predict: 
 	$(PYTHON_INTERPRETER) -m src.models.predict_model models/best_model.joblib data/processed/test_rfecv.pkl metrics

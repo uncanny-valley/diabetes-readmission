@@ -1,13 +1,13 @@
-Loaded test set (14007, 77)
+Loaded test set (14010, 80)
 Loaded model RandomForestClassifier
-Hyperparameters: {'bootstrap': True, 'ccp_alpha': 0.0, 'class_weight': None, 'criterion': 'entropy', 'max_depth': None, 'max_features': 'log2', 'max_leaf_nodes': None, 'max_samples': None, 'min_impurity_decrease': 0.0, 'min_impurity_split': None, 'min_samples_leaf': 10, 'min_samples_split': 100, 'min_weight_fraction_leaf': 0.0, 'n_estimators': 657, 'n_jobs': None, 'oob_score': False, 'random_state': 0, 'verbose': 0, 'warm_start': False}
+Hyperparameters: {'bootstrap': True, 'ccp_alpha': 0.0, 'class_weight': None, 'criterion': 'gini', 'max_depth': 25, 'max_features': 'log2', 'max_leaf_nodes': None, 'max_samples': None, 'min_impurity_decrease': 0.0, 'min_impurity_split': None, 'min_samples_leaf': 5, 'min_samples_split': 100, 'min_weight_fraction_leaf': 0.0, 'n_estimators': 563, 'n_jobs': None, 'oob_score': False, 'random_state': 0, 'verbose': 0, 'warm_start': False}
                       precision    recall  f1-score   support
 
-No early readmission       0.94      0.62      0.74     12751
-   Early readmission       0.13      0.59      0.21      1256
+No early readmission       0.94      0.62      0.75     12754
+   Early readmission       0.14      0.61      0.22      1256
 
-            accuracy                           0.61     14007
-           macro avg       0.53      0.60      0.48     14007
-        weighted avg       0.87      0.61      0.70     14007
+            accuracy                           0.62     14010
+           macro avg       0.54      0.61      0.48     14010
+        weighted avg       0.87      0.62      0.70     14010
 
-ROC AUC Score: 0.6421936683372405
+ROC AUC Score: 0.6475175391459554
